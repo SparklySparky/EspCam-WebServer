@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "esp_http_server.h": "c"
+        "esp_http_server.h": "c",
+        "camera_pins.h": "c"
     }
 }

@@ -1,8 +1,6 @@
 #ifndef CAMERA_PINS_H_
 #define CAMERA_PINS_H_
 
-//#define CONFIG_BOARD_ESP32CAM_AITHINKER 1
-
 // Freenove ESP32-WROVER CAM Board PIN Map
 #if CONFIG_BOARD_WROVER_KIT
 #define CAM_PIN_PWDN -1  //power down is not used

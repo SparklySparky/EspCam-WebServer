@@ -4,9 +4,9 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 
+#include "esp_timer.h"
 #include "esp_camera.h"
 #include "esp_http_server.h"
-#include "esp_timer.h"
 #include "camera_pins.h"
 #include "connect_wifi.h"
 
@@ -18,9 +18,6 @@ static const char *_STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
 static const char *_STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
 
 #define CONFIG_XCLK_FREQ 20000000
-
-static void stream_close_cb();
-bool stream_status = false;
 
 static esp_err_t init_camera(void)
 {
@@ -62,8 +59,6 @@ static esp_err_t init_camera(void)
 }
 
 esp_err_t jpg_stream_httpd_handler(httpd_req_t *req){
-    stream_status = true;
-
     camera_fb_t * fb = NULL;
     esp_err_t res = ESP_OK;
     size_t _jpg_buf_len;
@@ -81,17 +76,9 @@ esp_err_t jpg_stream_httpd_handler(httpd_req_t *req){
 
     gpio_set_level(GPIO_NUM_4, 1);
 
-    const esp_timer_create_args_t stream_close_args = {
-        .callback = &stream_close_cb,
-        .name = "stream_close"
-    };
+    uint64_t timer = esp_timer_get_time() + 300000000;
 
-    esp_timer_handle_t stream_close_timer;
-    ESP_ERROR_CHECK(esp_timer_create(&stream_close_args, &stream_close_timer));
-
-    ESP_ERROR_CHECK(esp_timer_start_once(stream_close_timer, 300000000));
-
-    while(stream_status == true){
+    while(timer > esp_timer_get_time()){
         fb = esp_camera_fb_get();
         if (!fb) {
             ESP_LOGE(TAG, "Camera capture failed");
@@ -137,9 +124,6 @@ esp_err_t jpg_stream_httpd_handler(httpd_req_t *req){
                  (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time);
     }
 
-    ESP_ERROR_CHECK(esp_timer_stop(stream_close_timer));
-    ESP_ERROR_CHECK(esp_timer_delete(stream_close_timer));
-
     gpio_set_level(GPIO_NUM_4, 0);
 
     last_frame = 0;
@@ -157,8 +141,6 @@ httpd_handle_t setup_server()
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-    //config.server_port = 8080;
-
     httpd_handle_t stream_httpd = NULL;
 
     if (httpd_start(&stream_httpd, &config) == ESP_OK)
@@ -167,11 +149,6 @@ httpd_handle_t setup_server()
     }
 
     return stream_httpd;
-}
-
-static void stream_close_cb(void)
-{
-    stream_status = false;
 }
 
 void app_main()
